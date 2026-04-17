@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trip Planner</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #faf9f6;
+    --surface: #ffffff;
+    --surface2: #f3f1ec;
+    --border: #e5e2da;
+    --text: #1a1916;
+    --muted: #7a7670;
+    --accent: #c8702a;
+    --accent-bg: #fdf3eb;
+    --green: #2d6a4f;
+    --green-bg: #e8f5ef;
+    --blue: #1d5fa6;
+    --blue-bg: #eaf1fb;
+    --red: #b83232;
+    --red-bg: #fceaea;
+    --shadow: 0 1px 4px rgba(0,0,0,0.08);
+    --radius: 10px;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  /* COVER */
+  .cover {
+    background: linear-gradient(135deg, #2c1a0e 0%, #5a3520 50%, #8b5a2b 100%);
+    height: 180px;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    padding: 0 48px 0;
+  }
+  .cover-emoji { font-size: 56px; position: absolute; top: 32px; left: 48px; }
+
+  /* HEADER */
+  .header {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px 48px 0;
+  }
+  .trip-title {
+    font-family: 'Lora', serif;
+    font-size: 36px;
+    font-weight: 500;
+    color: var(--text);
+    border: none;
+    background: transparent;
+    width: 100%;
+    outline: none;
+    padding: 8px 0;
+    letter-spacing: -0.5px;
+    border-bottom: 2px solid transparent;
+    transition: border-color 0.2s;
+  }
+  .trip-title:focus { border-bottom-color: var(--accent); }
+
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    margin-top: 16px;
+    padding: 16px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .meta-item { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .meta-label { color: var(--muted); font-weight: 500; min-width: 70px; }
+  .meta-input {
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    outline: none;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .meta-input:hover, .meta-input:focus { background: var(--surface2); }
+
+  /* TABS */
+  .tabs-bar {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 48px;
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+    margin-top: 20px;
+  }
+  .tab-btn {
+    padding: 10px 16px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.15s;
+    font-weight: 400;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+
+  /* CONTENT */
+  .content { max-width: 900px; margin: 0 auto; padding: 32px 48px; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* SECTION */
+  .section { margin-bottom: 32px; }
+  .section-title {
+    font-family: 'Lora', serif;
+    font-size: 18px;
+    font-weight: 500;
+    margin-bottom: 16px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title span { font-size: 16px; }
+
+  /* STATS ROW */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-val { font-size: 22px; font-weight: 500; color: var(--accent); font-family: 'Lora', serif; }
+  .stat-lbl { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* MAP */
+  #map {
+    height: 420px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .map-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .map-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+  }
+  .map-input:focus { border-color: var(--accent); }
+  .btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    transition: all 0.15s;
+    font-weight: 400;
+  }
+  .btn:hover { background: var(--surface2); border-color: var(--muted); }
+  .btn-accent { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-accent:hover { background: #a85c22; border-color: #a85c22; }
+  .btn-sm { padding: 5px 10px; font-size: 13px; }
+
+  /* STOP CHIPS */
+  .stops-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .stop-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent-bg);
+    border: 1px solid #f0c090;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 13px;
+    color: var(--accent);
+  }
+  .stop-chip .num {
+    background: var(--accent);
+    color: #fff;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .stop-chip .rm {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1;
+    margin-left: 2px;
+  }
+  .stop-chip .rm:hover { color: var(--red); }
+
+  /* ITINERARY */
+  .day-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .day-header {
+    background: var(--surface2);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+  }
+  .day-header-left { display: flex; align-items: center; gap: 10px; }
+  .day-pill {
+    background: var(--accent);
+    color: #fff;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .day-title-inp {
+    border: none;
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+    outline: none;
+    width: 240px;
+  }
+  .day-body { padding: 16px; }
+  .activity-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 8px;
+    padding: 8px;
+    border-radius: 6px;
+    transition: background 0.1s;
+  }
+  .activity-row:hover { background: var(--surface2); }
+  .act-time {
+    min-width: 64px;
+    font-size: 13px;
+    color: var(--muted);
+    padding-top: 2px;
+  }
+  .act-inp {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    outline: none;
+    padding: 1px 4px;
+  }
+  .act-type {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+  .type-stay { background: var(--blue-bg); color: var(--blue); }
+  .type-food { background: var(--green-bg); color: var(--green); }
+  .type-travel { background: var(--accent-bg); color: var(--accent); }
+  .type-activity { background: #f0ebfe; color: #5b3abf; }
+  .add-activity-btn {
+    background: none;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 4px;
+    transition: all 0.15s;
+  }
+  .add-activity-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* BUDGET */
+  .budget-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .budget-table { width: 100%; border-collapse: collapse; }
+  .budget-table th {
+    text-align: left;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .budget-table td {
+    padding: 10px 10px;
+    font-size: 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .budget-table tr:last-child td { border-bottom: none; }
+  .budget-table input {
+    border: none;
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    outline: none;
+    width: 100%;
+    padding: 2px 4px;
+    border-radius: 4px;
+  }
+  .budget-table input:focus { background: var(--surface2); }
+  .budget-total {
+    background: var(--surface2);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-align: center;
+  }
+  .budget-total-val { font-size: 32px; font-family: 'Lora', serif; font-weight: 500; color: var(--accent); }
+  .budget-total-lbl { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .progress-bar-wrap {
+    background: var(--border);
+    border-radius: 4px;
+    height: 6px;
+    margin-top: 12px;
+    overflow: hidden;
+  }
+  .progress-bar { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s; }
+  .cat-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  /* PACKING */
+  .packing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .pack-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .pack-section-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .pack-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 0;
+  }
+  .pack-item input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+  .pack-label {
+    font-size: 14px;
+    color: var(--text);
+    flex: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .pack-label.checked { text-decoration: line-through; color: var(--muted); }
+  .pack-rm { cursor: pointer; color: var(--border); font-size: 16px; transition: color 0.1s; }
+  .pack-rm:hover { color: var(--red); }
+
+  /* NOTES */
+  .notes-area {
+    width: 100%;
+    min-height: 120px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    background: var(--surface);
+    resize: vertical;
+    outline: none;
+    line-height: 1.7;
+  }
+  .notes-area:focus { border-color: var(--accent); }
+
+  /* DELETE btn */
+  .del-btn { background: none; border: none; cursor: pointer; color: var(--border); font-size: 16px; transition: color 0.1s; }
+  .del-btn:hover { color: var(--red); }
+
+  /* COLLAPSED */
+  .day-body.collapsed { display: none; }
+  .chevron { transition: transform 0.2s; font-size: 12px; color: var(--muted); }
+  .chevron.open { transform: rotate(90deg); }
+
+  /* SUMMARY BADGES */
+  .overview-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .ov-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .ov-icon { font-size: 24px; margin-bottom: 8px; }
+  .ov-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .ov-val { font-size: 20px; font-family: 'Lora', serif; margin-top: 2px; }
+
+  @media (max-width: 640px) {
+    .content, .header, .tabs-bar { padding-left: 20px; padding-right: 20px; }
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .budget-grid { grid-template-columns: 1fr; }
+    .packing-grid { grid-template-columns: 1fr 1fr; }
+    .overview-cards { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="cover-emoji">✈️</div>
+</div>
+
+<div class="header">
+  <input class="trip-title" id="tripTitle" type="text" value="My Adventure Trip" placeholder="Trip name..." spellcheck="false">
+  <div class="meta-row">
+    <div class="meta-item">
+      <span class="meta-label">📅 Dates</span>
+      <input class="meta-input" id="startDate" type="date">
+      <span style="color:var(--muted)">→</span>
+      <input class="meta-input" id="endDate" type="date">
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">👥 People</span>
+      <input class="meta-input" id="numPeople" type="number" min="1" value="2" style="width:48px">
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">💰 Budget</span>
+      <input class="meta-input" id="totalBudget" type="number" value="2000" style="width:80px"> USD
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">🌍 From</span>
+      <input class="meta-input" id="origin" type="text" value="London" style="width:90px">
+    </div>
+  </div>
+</div>
+
+<div class="tabs-bar">
+  <button class="tab-btn active" onclick="switchTab('overview')">Overview</button>
+  <button class="tab-btn" onclick="switchTab('map')">Route Map</button>
+  <button class="tab-btn" onclick="switchTab('itinerary')">Itinerary</button>
+  <button class="tab-btn" onclick="switchTab('budget')">Budget</button>
+  <button class="tab-btn" onclick="switchTab('packing')">Packing List</button>
+  <button class="tab-btn" onclick="switchTab('notes')">Notes</button>
+</div>
+
+<div class="content">
+
+  <!-- OVERVIEW -->
+  <div class="tab-panel active" id="tab-overview">
+    <div class="section">
+      <div class="section-title"><span>📊</span> Trip Summary</div>
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-val" id="ov-days">—</div>
+          <div class="stat-lbl">Days</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="ov-stops">0</div>
+          <div class="stat-lbl">Stops</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="ov-budget">$0</div>
+          <div class="stat-lbl">Spent</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="ov-remaining">—</div>
+          <div class="stat-lbl">Remaining</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span>🗺</span> Route Preview</div>
+      <div id="overview-stops" style="color:var(--muted);font-size:14px;">No stops added yet. Go to Route Map to add destinations.</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span>📝</span> Trip Description</div>
+      <textarea class="notes-area" id="tripDesc" placeholder="Write a short description of your trip..."></textarea>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div class="tab-panel" id="tab-map">
+    <div class="section">
+      <div class="section-title"><span>📍</span> Route Map</div>
+      <div class="map-controls">
+        <input class="map-input" id="stopInput" type="text" placeholder="Enter a city or place (e.g. Bishkek, Kyrgyzstan)">
+        <button class="btn btn-accent" onclick="addStop()">+ Add Stop</button>
+        <button class="btn" onclick="clearRoute()">Clear All</button>
+      </div>
+      <div class="stops-list" id="stopsList"></div>
+      <div style="margin-top:14px;">
+        <div id="map"></div>
+      </div>
+      <p style="font-size:13px;color:var(--muted);margin-top:8px;">Tip: You can also click directly on the map to add a pin.</p>
+    </div>
+  </div>
+
+  <!-- ITINERARY -->
+  <div class="tab-panel" id="tab-itinerary">
+    <div class="section">
+      <div class="section-title" style="justify-content:space-between">
+        <span style="display:flex;align-items:center;gap:8px;"><span>🗓</span> Day-by-Day Itinerary</span>
+        <button class="btn btn-sm btn-accent" onclick="addDay()">+ Add Day</button>
+      </div>
+      <div id="daysList"></div>
+    </div>
+  </div>
+
+  <!-- BUDGET -->
+  <div class="tab-panel" id="tab-budget">
+    <div class="section">
+      <div class="section-title"><span>💸</span> Budget Tracker</div>
+      <div class="budget-grid">
+        <div>
+          <table class="budget-table" id="budgetTable">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Item</th>
+                <th>Amount (USD)</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="budgetBody"></tbody>
+          </table>
+          <button class="btn btn-sm" style="margin-top:10px" onclick="addBudgetRow()">+ Add Expense</button>
+        </div>
+        <div>
+          <div class="budget-total">
+            <div class="budget-total-lbl">Total Spent</div>
+            <div class="budget-total-val" id="totalSpent">$0</div>
+            <div style="margin-top:8px;font-size:13px;color:var(--muted)">Budget: <span id="budgetDisplay">$2,000</span></div>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar" id="budgetProgress" style="width:0%"></div>
+            </div>
+            <div style="font-size:13px;color:var(--muted);margin-top:8px">Remaining: <strong id="budgetLeft" style="color:var(--green)">$2,000</strong></div>
+          </div>
+
+          <div style="margin-top:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;">
+            <div style="font-size:13px;font-weight:500;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">By Category</div>
+            <div id="catBreakdown" style="font-size:14px;color:var(--muted);">No expenses yet.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PACKING -->
+  <div class="tab-panel" id="tab-packing">
+    <div class="section">
+      <div class="section-title" style="justify-content:space-between">
+        <span style="display:flex;align-items:center;gap:8px;"><span>🎒</span> Packing List</span>
+        <span id="packProgress" style="font-size:13px;color:var(--muted)">0 / 0 packed</span>
+      </div>
+      <div class="packing-grid" id="packingGrid"></div>
+    </div>
+  </div>
+
+  <!-- NOTES -->
+  <div class="tab-panel" id="tab-notes">
+    <div class="section">
+      <div class="section-title"><span>📓</span> Travel Notes</div>
+      <textarea class="notes-area" id="mainNotes" style="min-height:300px" placeholder="Jot down ideas, tips, visa requirements, emergency contacts, important links..."></textarea>
+    </div>
+    <div class="section">
+      <div class="section-title"><span>🔗</span> Useful Links</div>
+      <div id="linksList" style="margin-bottom:10px;"></div>
+      <div style="display:flex;gap:8px;">
+        <input class="map-input" id="linkLabel" type="text" placeholder="Label (e.g. Hotel booking)" style="max-width:180px">
+        <input class="map-input" id="linkUrl" type="text" placeholder="https://...">
+        <button class="btn btn-sm" onclick="addLink()">+ Add</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ─── TAB SWITCHING ────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['overview','map','itinerary','budget','packing','notes'][i] === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'map' && !mapInited) initMap();
+  if (name === 'overview') updateOverview();
+}
+
+// ─── MAP ─────────────────────────────────────────────────────────────────────
+let map, mapInited = false;
+let routeLine = null;
+let stops = []; // [{name, lat, lng, marker}]
+
+function initMap() {
+  mapInited = true;
+  map = L.map('map').setView([42.87, 74.6], 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors', maxZoom: 18
+  }).addTo(map);
+  map.on('click', function(e) {
+    const name = prompt('Name this stop:');
+    if (name) addStopToMap(name, e.latlng.lat, e.latlng.lng);
+  });
+}
+
+async function addStop() {
+  const input = document.getElementById('stopInput');
+  const q = input.value.trim();
+  if (!q) return;
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`);
+    const data = await res.json();
+    if (data.length === 0) { alert('Location not found. Try a more specific name.'); return; }
+    addStopToMap(q, parseFloat(data[0].lat), parseFloat(data[0].lon));
+    input.value = '';
+  } catch(e) {
+    alert('Could not search location. Check your connection.');
+  }
+}
+
+function makeIcon(num) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="background:#c8702a;color:#fff;width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)"><span style="transform:rotate(45deg);font-size:12px;font-weight:600">${num}</span></div>`,
+    iconSize: [28, 28], iconAnchor: [14, 28]
+  });
+}
+
+function addStopToMap(name, lat, lng) {
+  if (!mapInited) initMap();
+  const marker = L.marker([lat, lng], { icon: makeIcon(stops.length + 1) })
+    .addTo(map)
+    .bindPopup(`<b>${name}</b><br>Stop ${stops.length + 1}`);
+  stops.push({ name, lat, lng, marker });
+  updateRoute();
+  renderStopChips();
+  updateOverview();
+  map.setView([lat, lng], Math.max(map.getZoom(), 7));
+}
+
+function updateRoute() {
+  if (routeLine) map.removeLayer(routeLine);
+  if (stops.length < 2) return;
+  const coords = stops.map(s => [s.lat, s.lng]);
+  routeLine = L.polyline(coords, {
+    color: '#c8702a', weight: 3, opacity: 0.75, dashArray: '8 6'
+  }).addTo(map);
+  map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+}
+
+function removeStop(i) {
+  map.removeLayer(stops[i].marker);
+  stops.splice(i, 1);
+  stops.forEach((s, j) => s.marker.setIcon(makeIcon(j + 1)));
+  updateRoute();
+  renderStopChips();
+  updateOverview();
+}
+
+function clearRoute() {
+  stops.forEach(s => map.removeLayer(s.marker));
+  stops = [];
+  if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+  renderStopChips();
+  updateOverview();
+}
+
+function renderStopChips() {
+  const el = document.getElementById('stopsList');
+  el.innerHTML = stops.map((s, i) => `
+    <div class="stop-chip">
+      <span class="num">${i+1}</span>
+      ${s.name}
+      <span class="rm" onclick="removeStop(${i})">✕</span>
+    </div>`).join('');
+}
+
+// ─── ITINERARY ────────────────────────────────────────────────────────────────
+let days = [];
+const typeColors = { stay:'type-stay', food:'type-food', travel:'type-travel', activity:'type-activity' };
+
+function getDayDate(di) {
+  const startVal = document.getElementById('startDate').value;
+  if (!startVal) return null;
+  const base = new Date(startVal + 'T00:00:00');
+  base.setDate(base.getDate() + di);
+  return base;
+}
+function formatDayDate(di) {
+  const d = getDayDate(di);
+  if (!d) return null;
+  return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function addDay() {
+  const d = { title: '', activities: [
+    { time: '09:00', text: '', type: 'activity' }
+  ], collapsed: false };
+  days.push(d);
+  renderDays();
+}
+
+function renderDays() {
+  const el = document.getElementById('daysList');
+  if (days.length === 0) {
+    el.innerHTML = '<p style="color:var(--muted);font-size:14px;">No days added yet. Click "+ Add Day" to start planning.</p>';
+    return;
+  }
+  el.innerHTML = days.map((d, di) => {
+    const dateStr = formatDayDate(di);
+    return `
+    <div class="day-block">
+      <div class="day-header" onclick="toggleDay(${di})">
+        <div class="day-header-left">
+          <span class="day-pill">Day ${di+1}</span>
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            ${dateStr ? `<span style="font-size:13px;font-weight:500;color:var(--accent);pointer-events:none">${dateStr}</span>` : ''}
+            <input class="day-title-inp" value="${escHtml(d.title)}" onclick="event.stopPropagation()"
+              oninput="days[${di}].title=this.value;saveAll()" placeholder="Add a title… e.g. Arrive in Bishkek" spellcheck="false"
+              style="font-size:13px;color:var(--muted);">
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:13px;color:var(--muted)">${d.activities.length} item${d.activities.length!==1?'s':''}</span>
+          <span class="chevron ${d.collapsed?'':'open'}">▶</span>
+          <button class="del-btn" onclick="event.stopPropagation();removeDay(${di})" title="Delete day">✕</button>
+        </div>
+      </div>
+      <div class="day-body ${d.collapsed?'collapsed':''}">
+        ${d.activities.map((a, ai) => `
+          <div class="activity-row">
+            <input class="act-time" type="time" value="${a.time}" oninput="days[${di}].activities[${ai}].time=this.value;saveAll()"
+              style="border:none;background:transparent;font-family:inherit;font-size:13px;color:var(--muted);outline:none;cursor:pointer">
+            <input class="act-inp" value="${escHtml(a.text)}" placeholder="Activity..." oninput="days[${di}].activities[${ai}].text=this.value;saveAll()" spellcheck="false">
+            <select class="act-type ${typeColors[a.type]||''}" style="border:none;font-family:inherit;font-size:12px;font-weight:500;padding:2px 8px;border-radius:10px;cursor:pointer;outline:none;"
+              onchange="days[${di}].activities[${ai}].type=this.value;renderDays();saveAll()">
+              <option value="activity" ${a.type==='activity'?'selected':''}>Activity</option>
+              <option value="food" ${a.type==='food'?'selected':''}>Food</option>
+              <option value="stay" ${a.type==='stay'?'selected':''}>Stay</option>
+              <option value="travel" ${a.type==='travel'?'selected':''}>Travel</option>
+            </select>
+            <button class="del-btn" onclick="removeActivity(${di},${ai})">✕</button>
+          </div>`).join('')}
+        <button class="add-activity-btn" onclick="addActivity(${di})">+ Add activity</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Re-render itinerary when start date changes so dates update live
+document.getElementById('startDate').addEventListener('change', () => { renderDays(); updateOverview(); saveAll(); });
+
+function toggleDay(i) { days[i].collapsed = !days[i].collapsed; renderDays(); }
+function removeDay(i) { days.splice(i, 1); renderDays(); }
+function addActivity(di) {
+  days[di].activities.push({ time: '12:00', text: '', type: 'activity' });
+  renderDays();
+}
+function removeActivity(di, ai) { days[di].activities.splice(ai, 1); renderDays(); }
+function escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ─── BUDGET ───────────────────────────────────────────────────────────────────
+let expenses = [];
+const catColors = { Accommodation:'type-stay', Food:'type-food', Transport:'type-travel', Activities:'type-activity', Shopping:'', Other:'' };
+
+function addBudgetRow() {
+  expenses.push({ cat: 'Accommodation', item: '', amount: 0 });
+  renderBudget();
+}
+
+function removeBudgetRow(i) { expenses.splice(i, 1); renderBudget(); }
+
+function renderBudget() {
+  const tbody = document.getElementById('budgetBody');
+  const cats = ['Accommodation','Food','Transport','Activities','Shopping','Other'];
+  tbody.innerHTML = expenses.map((e, i) => `
+    <tr>
+      <td>
+        <select onchange="expenses[${i}].cat=this.value;renderBudget()" style="border:none;background:transparent;font-family:inherit;font-size:13px;color:var(--text);outline:none;cursor:pointer;padding:2px">
+          ${cats.map(c=>`<option ${e.cat===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </td>
+      <td><input value="${escHtml(e.item)}" placeholder="Description" oninput="expenses[${i}].item=this.value"></td>
+      <td><input type="number" value="${e.amount}" min="0" oninput="expenses[${i}].amount=parseFloat(this.value)||0;updateBudgetTotals()" style="width:80px;text-align:right"></td>
+      <td><button class="del-btn" onclick="removeBudgetRow(${i})">✕</button></td>
+    </tr>`).join('');
+  updateBudgetTotals();
+}
+
+function updateBudgetTotals() {
+  const total = expenses.reduce((s, e) => s + (parseFloat(e.amount)||0), 0);
+  const budget = parseFloat(document.getElementById('totalBudget').value) || 0;
+  const left = budget - total;
+  document.getElementById('totalSpent').textContent = '$' + total.toFixed(2);
+  document.getElementById('budgetDisplay').textContent = '$' + budget.toLocaleString();
+  const pct = budget > 0 ? Math.min(100, (total/budget)*100) : 0;
+  document.getElementById('budgetProgress').style.width = pct + '%';
+  document.getElementById('budgetProgress').style.background = pct > 90 ? 'var(--red)' : pct > 70 ? '#d4820a' : 'var(--accent)';
+  document.getElementById('budgetLeft').textContent = '$' + left.toFixed(2);
+  document.getElementById('budgetLeft').style.color = left < 0 ? 'var(--red)' : 'var(--green)';
+  document.getElementById('ov-budget').textContent = '$' + Math.round(total);
+  document.getElementById('ov-remaining').textContent = '$' + Math.round(left);
+
+  // Category breakdown
+  const bycat = {};
+  expenses.forEach(e => { bycat[e.cat] = (bycat[e.cat]||0) + (parseFloat(e.amount)||0); });
+  const bd = document.getElementById('catBreakdown');
+  if (Object.keys(bycat).length === 0) { bd.innerHTML = '<span style="color:var(--muted)">No expenses yet.</span>'; return; }
+  bd.innerHTML = Object.entries(bycat).sort((a,b)=>b[1]-a[1]).map(([cat, amt]) => {
+    const pct = total > 0 ? Math.round((amt/total)*100) : 0;
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="min-width:90px;font-size:13px">${cat}</span>
+      <div style="flex:1;background:var(--border);border-radius:3px;height:5px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:var(--accent);border-radius:3px"></div>
+      </div>
+      <span style="font-size:12px;color:var(--muted);min-width:60px;text-align:right">$${amt.toFixed(0)} (${pct}%)</span>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('totalBudget').addEventListener('input', updateBudgetTotals);
+
+// ─── PACKING ─────────────────────────────────────────────────────────────────
+const packCats = {
+  '👕 Clothing': ['T-shirts (x5)', 'Pants (x2)', 'Underwear (x7)', 'Socks (x7)', 'Jacket / layers', 'Swimwear'],
+  '🧴 Toiletries': ['Toothbrush & paste', 'Shampoo & conditioner', 'Sunscreen', 'Deodorant', 'Medications'],
+  '🎒 Gear': ['Passport', 'Travel adapter', 'Power bank', 'Headphones', 'Camera', 'Day bag'],
+  '💊 Health': ['First aid kit', 'Insect repellent', 'Hand sanitizer', 'Travel insurance docs'],
+  '📱 Tech': ['Phone charger', 'Laptop', 'Local SIM or eSIM', 'Offline maps downloaded'],
+  '🗺 Documents': ['Travel insurance', 'Hotel bookings', 'Flight tickets', 'Emergency contacts']
+};
+
+let packItems = {};
+
+function initPacking() {
+  Object.entries(packCats).forEach(([cat, items]) => {
+    packItems[cat] = items.map(t => ({ text: t, checked: false }));
+  });
+  renderPacking();
+}
+
+function renderPacking() {
+  const grid = document.getElementById('packingGrid');
+  const cats = Object.keys(packItems);
+  let total = 0, done = 0;
+  cats.forEach(c => { packItems[c].forEach(i => { total++; if(i.checked) done++; }); });
+  document.getElementById('packProgress').textContent = `${done} / ${total} packed`;
+
+  grid.innerHTML = cats.map(cat => `
+    <div class="pack-section">
+      <div class="pack-section-title">
+        ${cat}
+        <button class="btn btn-sm" onclick="addPackItem('${cat.replace(/'/g,"\\'")}')">+</button>
+      </div>
+      ${packItems[cat].map((item, ii) => `
+        <div class="pack-item">
+          <input type="checkbox" ${item.checked?'checked':''} onchange="packItems['${cat.replace(/'/g,"\\'")}'][${ii}].checked=this.checked;renderPacking()">
+          <input class="pack-label ${item.checked?'checked':''}" value="${escHtml(item.text)}" oninput="packItems['${cat.replace(/'/g,"\\'")}'][${ii}].text=this.value" spellcheck="false">
+          <span class="pack-rm" onclick="removePackItem('${cat.replace(/'/g,"\\'")}',${ii})">✕</span>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+function addPackItem(cat) {
+  packItems[cat].push({ text: 'New item', checked: false });
+  renderPacking();
+}
+function removePackItem(cat, i) { packItems[cat].splice(i, 1); renderPacking(); }
+
+// ─── NOTES / LINKS ────────────────────────────────────────────────────────────
+let links = [];
+function addLink() {
+  const label = document.getElementById('linkLabel').value.trim();
+  const url = document.getElementById('linkUrl').value.trim();
+  if (!url) return;
+  links.push({ label: label || url, url });
+  document.getElementById('linkLabel').value = '';
+  document.getElementById('linkUrl').value = '';
+  renderLinks();
+}
+function renderLinks() {
+  document.getElementById('linksList').innerHTML = links.map((l, i) => `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <a href="${l.url}" target="_blank" style="color:var(--blue);font-size:14px;text-decoration:none">${escHtml(l.label)}</a>
+      <button class="del-btn btn-sm" onclick="links.splice(${i},1);renderLinks()">✕</button>
+    </div>`).join('') || '<p style="color:var(--muted);font-size:14px">No links added.</p>';
+}
+
+// ─── OVERVIEW ─────────────────────────────────────────────────────────────────
+function updateOverview() {
+  const s = document.getElementById('startDate').value;
+  const e = document.getElementById('endDate').value;
+  if (s && e) {
+    const diff = Math.round((new Date(e) - new Date(s)) / 86400000);
+    document.getElementById('ov-days').textContent = diff > 0 ? diff : '—';
+  }
+  document.getElementById('ov-stops').textContent = stops.length;
+  const ovStops = document.getElementById('overview-stops');
+  if (stops.length === 0) {
+    ovStops.innerHTML = '<span style="color:var(--muted)">No stops added yet. Go to Route Map to add destinations.</span>';
+  } else {
+    ovStops.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">' +
+      stops.map((s, i) => `<span class="stop-chip"><span class="num">${i+1}</span>${escHtml(s.name)}</span>${i < stops.length-1 ? '<span style="color:var(--muted)">→</span>' : ''}`).join('') +
+      '</div>';
+  }
+}
+
+['startDate','endDate'].forEach(id => document.getElementById(id).addEventListener('change', () => { updateOverview(); saveAll(); }));
+
+// ─── SAVE & LOAD (localStorage) ───────────────────────────────────────────────
+const SAVE_KEY = 'tripplanner_v1';
+
+function saveAll() {
+  const data = {
+    tripTitle: document.getElementById('tripTitle').value,
+    startDate: document.getElementById('startDate').value,
+    endDate: document.getElementById('endDate').value,
+    numPeople: document.getElementById('numPeople').value,
+    totalBudget: document.getElementById('totalBudget').value,
+    origin: document.getElementById('origin').value,
+    tripDesc: document.getElementById('tripDesc').value,
+    mainNotes: document.getElementById('mainNotes').value,
+    stopsData: stops.map(s => ({ name: s.name, lat: s.lat, lng: s.lng })),
+    days, expenses, packItems, links
+  };
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch(e) {}
+  showSavedToast();
+}
+
+let toastTimer;
+function showSavedToast() {
+  let t = document.getElementById('saved-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'saved-toast';
+    t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#2d6a4f;color:#fff;padding:8px 18px;border-radius:20px;font-size:13px;font-family:DM Sans,sans-serif;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:9999';
+    t.textContent = '✓ Saved';
+    document.body.appendChild(t);
+  }
+  clearTimeout(toastTimer);
+  t.style.opacity = '1';
+  toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 1800);
+}
+
+function loadAll() {
+  let data;
+  try { data = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch(e) {}
+  if (!data) {
+    addDay(); renderBudget(); initPacking(); updateOverview();
+    return;
+  }
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined) el.value = val; };
+  set('tripTitle', data.tripTitle);
+  set('startDate', data.startDate);
+  set('endDate', data.endDate);
+  set('numPeople', data.numPeople);
+  set('totalBudget', data.totalBudget);
+  set('origin', data.origin);
+  set('tripDesc', data.tripDesc);
+  set('mainNotes', data.mainNotes);
+
+  // Restore stops — map will be inited lazily; store raw data for when map opens
+  window._pendingStops = data.stopsData || [];
+
+  days = data.days || [];
+  if (days.length === 0) addDay(); else renderDays();
+
+  expenses = data.expenses || [];
+  renderBudget();
+
+  packItems = data.packItems || {};
+  if (Object.keys(packItems).length === 0) initPacking(); else renderPacking();
+
+  links = data.links || [];
+  renderLinks();
+
+  updateOverview();
+}
+
+// Patch initMap to reload saved stops
+const _origInitMap = initMap;
+initMap = function() {
+  _origInitMap();
+  (window._pendingStops || []).forEach(s => addStopToMap(s.name, s.lat, s.lng));
+  window._pendingStops = [];
+};
+
+// Auto-save on any input change
+document.addEventListener('input', saveAll);
+document.addEventListener('change', saveAll);
+
+// Clear data button
+function clearAllData() {
+  if (!confirm('Clear all saved data and start fresh?')) return;
+  localStorage.removeItem(SAVE_KEY);
+  location.reload();
+}
+
+// Add clear button to page
+const clearBtn = document.createElement('div');
+clearBtn.style.cssText = 'position:fixed;bottom:24px;left:24px;z-index:9999';
+clearBtn.innerHTML = `<button onclick="clearAllData()" style="background:transparent;border:1px solid #ccc;border-radius:20px;padding:6px 14px;font-size:12px;color:#999;cursor:pointer;font-family:DM Sans,sans-serif">🗑 Clear saved data</button>`;
+document.body.appendChild(clearBtn);
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+loadAll();
+</script>
+</body>
+</html>
