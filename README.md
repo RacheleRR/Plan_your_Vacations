@@ -2,7 +2,7 @@
 
 A shared, real-time trip planner built for two (or more). Plan your route, itinerary, budget, and packing list together — any change one person makes is instantly visible to everyone.
 
-🌍 **Live at:** `https://YOUR-USERNAME.github.io/YOUR-REPO-NAME`
+🌍 **Live at:** `https://rachelerr.github.io/Plan_your_Vacations/'
 
 ---
 
